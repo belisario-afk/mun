@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   spotifyFetchPlaylists,
   spotifyLogin,
-  spotifySearchTracks,
   spotifyStartPlaylist,
   type SpotifyPlaylist
 } from '../../audio/spotify/spotify';
@@ -35,8 +34,8 @@ export const LeftWingPlaylists: React.FC = () => {
     }
     // Initial load
     loadMore();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loggedIn]);
+    // Note: we intentionally only run this on login state change
+  }, [loggedIn]); // no rule disables; CI doesn't provide react-hooks plugin
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
@@ -73,7 +72,6 @@ export const LeftWingPlaylists: React.FC = () => {
                 title={p.name}
               >
                 {p.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.image} alt="" className="w-8 h-8 rounded object-cover" />
                 ) : (
                   <div className="w-8 h-8 rounded bg-slate-700" />
@@ -86,9 +84,7 @@ export const LeftWingPlaylists: React.FC = () => {
                 </div>
               </button>
             ))}
-            {filtered.length === 0 && (
-              <div className="text-xs opacity-70 px-1 py-2">No playlists</div>
-            )}
+            {filtered.length === 0 && <div className="text-xs opacity-70 px-1 py-2">No playlists</div>}
           </div>
 
           {nextOffset !== null && (

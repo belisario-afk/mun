@@ -1,11 +1,11 @@
-/* Complete Spotify PKCE + Web Playback SDK wiring + playlists/search/control.
+/* Complete Spotify PKCE + Web Playback SDK wiring.
    - PKCE login with accounts.spotify.com
    - Token exchange + refresh + persistence (localStorage)
    - Session restore on app load
    - Web Playback SDK bootstrap
    - Devices list + transfer
    - Play/Pause/Next control with Web API
-   - Fetch playlists, search tracks, start a playlist context
+   - Fetch playlists, search, start a playlist context
 */
 
 import { useStore } from '../../store/store';
@@ -29,7 +29,7 @@ const VERIFIER_KEY = 'spotify_pkce_verifier';
 
 const clientId: string = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
 if (!clientId) {
-  // eslint-disable-next-line no-console
+  // Keep a dev hint without eslint disables
   console.warn('VITE_SPOTIFY_CLIENT_ID is not set. Spotify login will not work.');
 }
 
@@ -86,6 +86,7 @@ function saveTokens(tokens: SpotifyTokens) {
       accessToken: tokens.accessToken,
       expiresAt: tokens.expiresAt
     };
+    // Only assign refreshToken if present, to satisfy strict Store types
     if (tokens.refreshToken) nextSpotify.refreshToken = tokens.refreshToken;
 
     return {
@@ -127,7 +128,7 @@ function scheduleRefresh(expiresAt: number) {
   const ms = Math.max(5_000, expiresAt - now() - 60_000); // refresh 60s early
   refreshTimer = window.setTimeout(() => {
     refreshAccessToken().catch(() => {
-      /* ignore */
+      // silently ignore; calls will handle 401 with one retry
     });
   }, ms);
 }
@@ -189,16 +190,19 @@ export async function spotifyHandleRedirectCallback(): Promise<boolean> {
 
   if (error) {
     useStore.getState().actions.toast(`Spotify auth error: ${error}`, 'error');
+    // clean URL
     url.searchParams.delete('error');
     history.replaceState({}, '', url.toString());
     return false;
   }
 
   if (!code) {
+    // Not an auth redirect: maybe restore tokens from storage
     const stored = loadTokensFromStorage();
     if (stored) {
       saveTokens(stored);
       scheduleRefresh(stored.expiresAt);
+      // hydrate premium flag if we have it
       void fetchMeAndSetPremium().catch(() => {});
       return false;
     }
@@ -242,11 +246,12 @@ export async function spotifyHandleRedirectCallback(): Promise<boolean> {
 
     useStore.getState().actions.toast('Spotify connected', 'info');
 
+    // Clean the URL
     url.searchParams.delete('code');
     url.searchParams.delete('state');
     history.replaceState({}, '', url.toString());
     return true;
-  } catch {
+  } catch (e) {
     useStore.getState().actions.toast('Spotify token exchange failed', 'error');
     return false;
   }
@@ -271,6 +276,7 @@ async function refreshAccessToken(): Promise<boolean> {
     const j = await res.json();
     const tokens: SpotifyTokens = {
       accessToken: j.access_token,
+      // reuse old refresh token if new one not present
       refreshToken: j.refresh_token || st.refreshToken,
       expiresAt: now() + (j.expires_in || 3600) * 1000
     };
@@ -309,7 +315,7 @@ async function fetchMeAndSetPremium() {
     const premium = String(j.product || '').toLowerCase() === 'premium';
     useStore.setState((s) => ({ auth: { ...s.auth, spotify: { ...s.auth.spotify, premium } } }));
   } catch {
-    /* ignore */
+    // ignore
   }
 }
 
@@ -337,7 +343,7 @@ export async function spotifyCreatePlayer() {
     useStore.getState().actions.toast('Spotify device ready', 'info');
   });
   player.addListener('not_ready', () => {
-    /* device offline */
+    // device offline
   });
   player.addListener('player_state_changed', (state: any) => {
     if (!state) return;
@@ -421,7 +427,10 @@ export async function spotifyLogout() {
 
 // Helper to run on app start: restore tokens and handle redirect if present
 export async function spotifyInitOnAppLoad() {
+  // 1) Handle redirect exchange if code present
   const didAuth = await spotifyHandleRedirectCallback();
+
+  // 2) If no code, restore tokens
   if (!didAuth) {
     const stored = loadTokensFromStorage();
     if (stored) {
@@ -430,6 +439,8 @@ export async function spotifyInitOnAppLoad() {
       void fetchMeAndSetPremium().catch(() => {});
     }
   }
+
+  // 3) Inject SDK early
   void initializeSpotifySDK();
 }
 

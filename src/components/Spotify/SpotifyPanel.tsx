@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   initializeSpotifySDK,
   spotifyCreatePlayer,
@@ -14,7 +14,6 @@ import { useStore } from '../../store/store';
 export const SpotifyPanel: React.FC = () => {
   const playerState = useStore((s) => s.player);
   const auth = useStore((s) => s.auth.spotify);
-  const actions = useStore((s) => s.actions);
   const [devices, setDevices] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
   const active = playerState.source === 'spotify';
 
