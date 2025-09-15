@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   initializeSpotifySDK,
   spotifyCreatePlayer,
@@ -18,33 +18,41 @@ export const SpotifyPanel: React.FC = () => {
   const [devices, setDevices] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
   const active = playerState.source === 'spotify';
 
-  useEffect(() => {
-    if (!active) return;
-    initializeSpotifySDK().catch(() => {});
-  }, [active]);
+  const loggedIn = !!auth.accessToken;
+  const premium = !!auth.premium;
 
+  // Create SDK player when Spotify is the source and logged in
   useEffect(() => {
-    async function run() {
-      if (!active || !auth.accessToken) return;
+    if (!active || !loggedIn) return;
+    (async () => {
+      await initializeSpotifySDK().catch(() => {});
+      await spotifyCreatePlayer();
+    })();
+  }, [active, loggedIn]);
+
+  // Poll devices so user can transfer
+  useEffect(() => {
+    let mounted = true;
+
+    async function poll() {
+      if (!active || !loggedIn) return;
       try {
-        const player = await spotifyCreatePlayer();
         const list = await spotifyDevices();
-        setDevices(list);
-        if (player && auth.deviceId && list.every((d) => !d.is_active)) {
-          await spotifyTransferPlayback(auth.deviceId);
-        }
+        if (mounted) setDevices(list);
       } catch {
-        actions.toast('Spotify init error', 'warn');
+        // ignore
       }
     }
-    run();
-    const id = setInterval(run, 10000);
-    return () => clearInterval(id);
-  }, [active, auth.accessToken, auth.deviceId, actions]);
+
+    poll();
+    const id = setInterval(poll, 10000);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, [active, loggedIn]);
 
   if (!active) return null;
-
-  const loggedIn = !!auth.accessToken;
 
   return (
     <div
@@ -53,12 +61,30 @@ export const SpotifyPanel: React.FC = () => {
     >
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm">Spotify</div>
-        <div className="text-xs opacity-70">{loggedIn ? 'Connected' : 'Logged out'}</div>
+        <div className="text-xs opacity-70">
+          {loggedIn ? (premium ? 'Premium connected' : 'Free connected') : 'Logged out'}
+        </div>
       </div>
+
       {!loggedIn ? (
-        <button className="px-3 py-2 bg-green-700 rounded w-full" onClick={() => spotifyLogin()}>
+        <button
+          className="px-3 py-2 bg-green-700 rounded w-full"
+          onClick={() => spotifyLogin()}
+          title="Connect your Spotify account"
+        >
           Login with Spotify
         </button>
+      ) : !premium ? (
+        <div className="space-y-2">
+          <div className="text-xs opacity-80">
+            Spotify Web Playback SDK requires Premium to play in the browser.
+          </div>
+          <div className="flex gap-2">
+            <button className="px-3 py-2 bg-slate-800 rounded flex-1" onClick={() => spotifyLogout()}>
+              Logout
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="space-y-2">
           <div className="flex gap-2">

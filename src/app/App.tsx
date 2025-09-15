@@ -11,7 +11,7 @@ import { useWakeLock } from '../tablet/WakeLock';
 import { useFullscreen } from '../tablet/Fullscreen';
 import { GestureLayer } from '../tablet/Gestures';
 import { Diagnostics } from '../components/UI/Diagnostics';
-import { initializeSpotifySDK } from '../audio/spotify/spotify';
+import { initializeSpotifySDK, spotifyInitOnAppLoad } from '../audio/spotify/spotify';
 import { VoiceIndicator } from '../components/UI/VoiceIndicator';
 import { A11yAnnouncer } from '../accessibility/A11yAnnouncer';
 import { Toasts } from '../components/UI/Toasts';
@@ -35,11 +35,15 @@ export const App: React.FC = () => {
   useFullscreen();
 
   useEffect(() => {
-    // Prepare SDK and geolocation
+    // Handle Spotify auth restore/redirect and inject SDK
+    spotifyInitOnAppLoad().catch(() => {});
+    // Also ensure SDK tag is injected early (no-op if already injected)
     initializeSpotifySDK().catch(() => {});
+
+    // Geolocation armed to first gesture
     initGeolocationOnGesture();
 
-    // Audio only after a user gesture (prevents autoplay violations)
+    // Ambient audio only after a gesture (prevents autoplay violations)
     (async () => {
       await waitForFirstGesture();
       startAmbient();
