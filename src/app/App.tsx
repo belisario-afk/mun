@@ -35,17 +35,15 @@ export const App: React.FC = () => {
   useFullscreen();
 
   useEffect(() => {
-    // Load Spotify SDK shell early (no-throw even without token)
+    // Prepare SDK and geolocation
     initializeSpotifySDK().catch(() => {});
-    // Geolocation will only request after first user gesture
     initGeolocationOnGesture();
 
-    // Start ambient SFX only after a gesture (prevents autoplay violations)
-    const run = async () => {
+    // Audio only after a user gesture (prevents autoplay violations)
+    (async () => {
       await waitForFirstGesture();
       startAmbient();
-    };
-    run();
+    })();
   }, []);
 
   return (

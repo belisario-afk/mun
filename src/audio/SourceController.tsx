@@ -16,18 +16,13 @@ export const SourceController: React.FC = () => {
       stopLocal();
 
       if (source === 'radio') {
-        if (!hasUserGestured()) {
-          // wait for a user interaction to avoid autoplay errors
-          await waitForFirstGesture();
-        }
+        if (!hasUserGestured()) await waitForFirstGesture();
         if (!cancelled) await startRadio().catch(() => {});
       } else if (source === 'local') {
-        if (!hasUserGestured()) {
-          await waitForFirstGesture();
-        }
+        if (!hasUserGestured()) await waitForFirstGesture();
         if (!cancelled) await playSample().catch(() => {});
       }
-      // spotify is handled by SpotifyPanel
+      // spotify handled by SpotifyPanel
     }
 
     apply();

@@ -31,7 +31,7 @@ export function initGeolocationOnGesture() {
         }
       },
       () => {
-        // mark GPS unavailable and ignore errors; user may deny
+        // mark GPS unavailable; user may deny
         useStore.setState((s) => ({ sensors: { ...s.sensors, gpsAvailable: false } }));
       },
       { maximumAge: 600000 }

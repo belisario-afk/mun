@@ -1,21 +1,23 @@
 let interacted = false;
 let waiting: Array<() => void> = [];
 
-function markInteracted() {
-  if (interacted) return;
-  interacted = true;
-  // flush waiters
+function flush() {
   for (const fn of waiting) fn();
   waiting = [];
-  window.removeEventListener('pointerdown', markInteracted);
-  window.removeEventListener('keydown', markInteracted);
+}
+
+function onInteract() {
+  if (interacted) return;
+  interacted = true;
+  flush();
+  window.removeEventListener('pointerdown', onInteract);
+  window.removeEventListener('keydown', onInteract);
 }
 
 export function waitForFirstGesture(): Promise<void> {
   if (interacted) return Promise.resolve();
-  // ensure listeners are attached once
-  window.addEventListener('pointerdown', markInteracted, { once: true });
-  window.addEventListener('keydown', markInteracted, { once: true });
+  window.addEventListener('pointerdown', onInteract, { once: true });
+  window.addEventListener('keydown', onInteract, { once: true });
   return new Promise((resolve) => {
     waiting.push(resolve);
   });
