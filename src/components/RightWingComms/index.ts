@@ -1,0 +1,1 @@
+export { RightWingComms } from './RightWingComms';

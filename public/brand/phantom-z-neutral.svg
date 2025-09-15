@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120" role="img" aria-label="Phantom Console Z">
+  <rect width="320" height="120" rx="12" fill="none"/>
+  <text x="16" y="40" fill="#bfeaff" font-size="24" font-family="monospace">PHANTOM CONSOLE</text>
+  <path d="M40 96 L160 24 L144 24 L24 96 Z" fill="#9bd" />
+  <path d="M96 104 L240 24 L224 24 L80 104 Z" fill="#cfe" />
+</svg>

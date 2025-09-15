@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120" role="img" aria-label="Phantom Console Z (Chrome)">
+  <defs>
+    <linearGradient id="chrome" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ddd"/>
+      <stop offset="0.5" stop-color="#777"/>
+      <stop offset="1" stop-color="#fff"/>
+    </linearGradient>
+  </defs>
+  <text x="16" y="40" fill="#eee" font-size="24" font-family="monospace">PHANTOM CONSOLE</text>
+  <path d="M40 96 L160 24 L144 24 L24 96 Z" fill="url(#chrome)" />
+  <path d="M96 104 L240 24 L224 24 L80 104 Z" fill="url(#chrome)" />
+</svg>
