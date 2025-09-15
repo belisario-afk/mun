@@ -1,7 +1,4 @@
-import { useStore } from '../../store/store';
-
 export async function fetchWeather() {
-  // Use last known position from Geolocation API if available; otherwise fallback to 0,0
   const pos = await new Promise<GeolocationPosition | null>((resolve) =>
     navigator.geolocation.getCurrentPosition(
       (p) => resolve(p),

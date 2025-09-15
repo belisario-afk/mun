@@ -2,9 +2,7 @@ import React from 'react';
 import { useStore } from '../../store/store';
 
 export const LeftWingPlaylists: React.FC = () => {
-  const auth = useStore((s) => s.auth.spotify);
   const actions = useStore((s) => s.actions);
-  // For demo, static playlist pings; in real Spotify mode we'd fetch playlists.
   const playlists = [
     { id: 'energy', name: 'Energy Ops', energy: 0.9 },
     { id: 'focus', name: 'Focus Vector', energy: 0.4 },
@@ -24,7 +22,6 @@ export const LeftWingPlaylists: React.FC = () => {
             onClick={() => {
               actions.toast(`Lock-on: ${p.name}`);
               actions.setSource('spotify');
-              // dispatch AI suggestion
               useStore.getState().actions.logAI('system', `Playlist "${p.name}" selected.`);
             }}
             aria-label={`Playlist ${p.name}`}

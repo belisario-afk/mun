@@ -6,7 +6,7 @@ export type ScopeMode = 'oscilloscope' | 'equalizer' | 'ring' | 'timeline';
 
 export interface UIState {
   scopeMode: ScopeMode;
-  expanded: boolean; // false => stealth HUD
+  expanded: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
   lowPower: boolean;
@@ -101,7 +101,7 @@ export type Store = {
   };
 };
 
-export const useStore = create<Store>((set, get) => ({
+export const useStore = create<Store>((set, _get) => ({
   ui: {
     scopeMode: 'oscilloscope',
     expanded: true,
@@ -157,6 +157,6 @@ export const useStore = create<Store>((set, get) => ({
     setWakeLock: (v) => set((st) => ({ tablet: { ...st.tablet, wakeLock: v } })),
     setFullscreen: (v) => set((st) => ({ tablet: { ...st.tablet, fullscreen: v } })),
     setCarDock: (v) => set((st) => ({ tablet: { ...st.tablet, carDockMode: v } })),
-    setTheme: (k) => set((st) => ({ theme: { theme: k } }))
+    setTheme: (k) => set(() => ({ theme: { theme: k } }))
   }
 }));

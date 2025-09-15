@@ -24,26 +24,22 @@ export const SpotifyPanel: React.FC = () => {
   }, [active]);
 
   useEffect(() => {
-    let canceled = false;
     async function run() {
       if (!active || !auth.accessToken) return;
       try {
         const player = await spotifyCreatePlayer();
         const list = await spotifyDevices();
-        if (!canceled) setDevices(list);
+        setDevices(list);
         if (player && auth.deviceId && list.every((d) => !d.is_active)) {
           await spotifyTransferPlayback(auth.deviceId);
         }
-      } catch (e) {
+      } catch (_e) {
         actions.toast('Spotify init error', 'warn');
       }
     }
     run();
     const id = setInterval(run, 10000);
-    return () => {
-      canceled = true;
-      clearInterval(id);
-    };
+    return () => clearInterval(id);
   }, [active, auth.accessToken, auth.deviceId, actions]);
 
   if (!active) return null;

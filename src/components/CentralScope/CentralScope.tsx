@@ -26,7 +26,7 @@ export const CentralScope: React.FC = () => {
     [],
   );
 
-  useFrame((state, delta) => {
+  useFrame((state, _delta) => {
     if (!group.current) return;
     const t = state.clock.elapsedTime;
     const intensity = lowPower ? 0.2 : 1.0;

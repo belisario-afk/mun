@@ -26,8 +26,7 @@ import { SourceController } from '../audio/SourceController';
 
 export const App: React.FC = () => {
   const {
-    ui: { reducedMotion, highContrast },
-    player
+    ui: { reducedMotion, highContrast }
   } = useStore();
 
   useWakeLock();
@@ -35,7 +34,6 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     initializeSpotifySDK().catch(() => {});
-    // Prewarm ambient hum after first interaction is handled by FirstRunHint, also start here if user reloads mid-session
     const onFirstGesture = () => {
       startAmbient();
       window.removeEventListener('pointerdown', onFirstGesture);
@@ -87,7 +85,6 @@ export const App: React.FC = () => {
       <FirstRunHint />
       <InstallPrompt />
 
-      {/* Source-specific control panels */}
       <SpotifyPanel />
       <LocalPanel />
     </div>

@@ -9,7 +9,7 @@ export interface Env {
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: any): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: any): Promise<Response> {
     const url = new URL(request.url);
     const allow = env.ALLOW_ORIGIN || 'https://belisario-afk.github.io';
     const cors = {
@@ -131,7 +131,7 @@ export default {
       }
 
       return new Response('Not found', { status: 404, headers: cors });
-    } catch (e) {
+    } catch (_e) {
       return new Response('Proxy error', { status: 500, headers: cors });
     }
   }

@@ -7,9 +7,7 @@ export const SourceController: React.FC = () => {
   const source = useStore((s) => s.player.source);
 
   useEffect(() => {
-    let cancelled = false;
     async function apply() {
-      // Stop everything first
       stopRadio();
       stopLocal();
       if (source === 'radio') {
@@ -17,13 +15,10 @@ export const SourceController: React.FC = () => {
       } else if (source === 'local') {
         await playSample().catch(() => {});
       } else if (source === 'spotify') {
-        // Spotify is controlled via the SpotifyPanel; nothing to start here.
+        // Spotify controlled via SpotifyPanel
       }
     }
     apply();
-    return () => {
-      cancelled = true;
-    };
   }, [source]);
 
   return null;
