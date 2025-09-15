@@ -251,7 +251,7 @@ export async function spotifyHandleRedirectCallback(): Promise<boolean> {
     url.searchParams.delete('state');
     history.replaceState({}, '', url.toString());
     return true;
-  } catch (e) {
+  } catch {
     useStore.getState().actions.toast('Spotify token exchange failed', 'error');
     return false;
   }
