@@ -1,10 +1,11 @@
-/* Complete Spotify PKCE + Web Playback SDK wiring.
+/* Complete Spotify PKCE + Web Playback SDK wiring + playlists/search/control.
    - PKCE login with accounts.spotify.com
    - Token exchange + refresh + persistence (localStorage)
    - Session restore on app load
    - Web Playback SDK bootstrap
    - Devices list + transfer
    - Play/Pause/Next control with Web API
+   - Fetch playlists, search tracks, start a playlist context
 */
 
 import { useStore } from '../../store/store';
@@ -45,7 +46,9 @@ const SCOPES = [
   'user-read-private',
   'user-read-playback-state',
   'user-modify-playback-state',
-  'user-read-currently-playing'
+  'user-read-currently-playing',
+  'playlist-read-private',
+  'playlist-read-collaborative'
 ].join(' ');
 
 let sdkInjected = false;
@@ -83,7 +86,6 @@ function saveTokens(tokens: SpotifyTokens) {
       accessToken: tokens.accessToken,
       expiresAt: tokens.expiresAt
     };
-    // Only assign refreshToken if present, to satisfy strict Store types
     if (tokens.refreshToken) nextSpotify.refreshToken = tokens.refreshToken;
 
     return {
@@ -125,7 +127,7 @@ function scheduleRefresh(expiresAt: number) {
   const ms = Math.max(5_000, expiresAt - now() - 60_000); // refresh 60s early
   refreshTimer = window.setTimeout(() => {
     refreshAccessToken().catch(() => {
-      // silently ignore; calls will handle 401 with one retry
+      /* ignore */
     });
   }, ms);
 }
@@ -139,7 +141,6 @@ async function sha256(input: string) {
 
 function base64UrlEncode(bytes: Uint8Array) {
   let str = '';
-  // Non-null assertion for strict index access
   for (let i = 0; i < bytes.length; i++) {
     str += String.fromCharCode(bytes[i]!);
   }
@@ -188,19 +189,16 @@ export async function spotifyHandleRedirectCallback(): Promise<boolean> {
 
   if (error) {
     useStore.getState().actions.toast(`Spotify auth error: ${error}`, 'error');
-    // clean URL
     url.searchParams.delete('error');
     history.replaceState({}, '', url.toString());
     return false;
   }
 
   if (!code) {
-    // Not an auth redirect: maybe restore tokens from storage
     const stored = loadTokensFromStorage();
     if (stored) {
       saveTokens(stored);
       scheduleRefresh(stored.expiresAt);
-      // hydrate premium flag if we have it
       void fetchMeAndSetPremium().catch(() => {});
       return false;
     }
@@ -244,12 +242,11 @@ export async function spotifyHandleRedirectCallback(): Promise<boolean> {
 
     useStore.getState().actions.toast('Spotify connected', 'info');
 
-    // Clean the URL
     url.searchParams.delete('code');
     url.searchParams.delete('state');
     history.replaceState({}, '', url.toString());
     return true;
-  } catch (e) {
+  } catch {
     useStore.getState().actions.toast('Spotify token exchange failed', 'error');
     return false;
   }
@@ -274,7 +271,6 @@ async function refreshAccessToken(): Promise<boolean> {
     const j = await res.json();
     const tokens: SpotifyTokens = {
       accessToken: j.access_token,
-      // reuse old refresh token if new one not present
       refreshToken: j.refresh_token || st.refreshToken,
       expiresAt: now() + (j.expires_in || 3600) * 1000
     };
@@ -313,7 +309,7 @@ async function fetchMeAndSetPremium() {
     const premium = String(j.product || '').toLowerCase() === 'premium';
     useStore.setState((s) => ({ auth: { ...s.auth, spotify: { ...s.auth.spotify, premium } } }));
   } catch {
-    // ignore
+    /* ignore */
   }
 }
 
@@ -341,7 +337,7 @@ export async function spotifyCreatePlayer() {
     useStore.getState().actions.toast('Spotify device ready', 'info');
   });
   player.addListener('not_ready', () => {
-    // device offline
+    /* device offline */
   });
   player.addListener('player_state_changed', (state: any) => {
     if (!state) return;
@@ -425,10 +421,7 @@ export async function spotifyLogout() {
 
 // Helper to run on app start: restore tokens and handle redirect if present
 export async function spotifyInitOnAppLoad() {
-  // 1) Handle redirect exchange if code present
   const didAuth = await spotifyHandleRedirectCallback();
-
-  // 2) If no code, restore tokens
   if (!didAuth) {
     const stored = loadTokensFromStorage();
     if (stored) {
@@ -437,7 +430,105 @@ export async function spotifyInitOnAppLoad() {
       void fetchMeAndSetPremium().catch(() => {});
     }
   }
-
-  // 3) Inject SDK early
   void initializeSpotifySDK();
+}
+
+/* -------- Playlists, search, and ensure device helpers -------- */
+
+export type SpotifyPlaylist = {
+  id: string;
+  name: string;
+  image?: string;
+  owner?: string;
+  tracksTotal?: number;
+};
+
+export async function spotifyFetchPlaylists(limit = 20, offset = 0): Promise<{ items: SpotifyPlaylist[]; nextOffset: number | null }> {
+  try {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    const res = await authorizedFetch(`https://api.spotify.com/v1/me/playlists?${params.toString()}`);
+    if (!res.ok) throw new Error(`playlists ${res.status}`);
+    const j = await res.json();
+    const items: SpotifyPlaylist[] = (j.items || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      image: p.images?.[0]?.url,
+      owner: p.owner?.display_name,
+      tracksTotal: p.tracks?.total
+    }));
+    const nextOffset = j.next ? offset + limit : null;
+    return { items, nextOffset };
+  } catch {
+    useStore.getState().actions.toast('Failed to fetch playlists', 'warn');
+    return { items: [], nextOffset: null };
+  }
+}
+
+export type SpotifySearchResult = {
+  tracks: { id: string; name: string; artist: string; albumArt?: string }[];
+};
+
+export async function spotifySearchTracks(query: string, limit = 10): Promise<SpotifySearchResult> {
+  try {
+    const params = new URLSearchParams({ q: query, type: 'track', limit: String(limit) });
+    const res = await authorizedFetch(`https://api.spotify.com/v1/search?${params.toString()}`);
+    if (!res.ok) throw new Error(`search ${res.status}`);
+    const j = await res.json();
+    const tracks = (j.tracks?.items || []).map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      artist: t.artists?.map((a: any) => a.name).join(', ') || '',
+      albumArt: t.album?.images?.[0]?.url
+    }));
+    return { tracks };
+  } catch {
+    return { tracks: [] };
+  }
+}
+
+async function ensureBrowserDeviceActive(): Promise<string | null> {
+  await spotifyCreatePlayer();
+  const auth = useStore.getState().auth.spotify;
+  const devices = await spotifyDevices();
+  // Prefer our own connected device if present
+  if (auth.deviceId && devices.find((d) => d.id === auth.deviceId)) {
+    return auth.deviceId;
+  }
+  // Otherwise choose the first active device; if browser device is present but not active, transfer
+  const active = devices.find((d) => d.is_active)?.id || devices[0]?.id || null;
+  if (active && active !== auth.deviceId) {
+    await spotifyTransferPlayback(active);
+    return active;
+  }
+  return auth.deviceId || active;
+}
+
+export async function spotifyStartPlaylist(playlistId: string) {
+  const st = useStore.getState();
+  if (!st.auth.spotify.accessToken) {
+    useStore.getState().actions.toast('Connect Spotify first', 'warn');
+    return;
+  }
+
+  if (!st.auth.spotify.premium) {
+    useStore.getState().actions.toast('Spotify Premium is required for in-browser playback', 'warn');
+    return;
+  }
+
+  try {
+    st.actions.setSource('spotify');
+    const device = await ensureBrowserDeviceActive();
+
+    const params = device ? `?device_id=${encodeURIComponent(device)}` : '';
+    const res = await authorizedFetch(`https://api.spotify.com/v1/me/player/play${params}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        context_uri: `spotify:playlist:${playlistId}`,
+        offset: { position: 0 }
+      })
+    });
+    if (!res.ok) throw new Error(`play ${res.status}`);
+  } catch {
+    useStore.getState().actions.toast('Failed to start playlist', 'error');
+  }
 }

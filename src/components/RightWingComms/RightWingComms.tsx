@@ -1,22 +1,59 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { getStations, getCurrentStation, setStation, startRadio, stopRadio } from '../../audio/radio/radio';
 import { useStore } from '../../store/store';
+import { hasUserGestured, waitForFirstGesture } from '../../utils/userGesture';
 
 export const RightWingComms: React.FC = () => {
-  const ai = useStore((s) => s.ai);
+  const actions = useStore((s) => s.actions);
+  const playing = useStore((s) => s.player.playing);
+  const source = useStore((s) => s.player.source);
+  const [stations] = useState(getStations());
+  const [current, setCurrent] = useState(getCurrentStation());
+
+  useEffect(() => {
+    setCurrent(getCurrentStation());
+  }, [source, playing]);
+
+  const onSelect = async (id: string) => {
+    setStation(id);
+    actions.setSource('radio');
+    if (!hasUserGestured()) await waitForFirstGesture();
+    await startRadio();
+  };
+
+  const onStop = () => {
+    stopRadio();
+    actions.setPlayState(false);
+  };
+
   return (
-    <div
-      className="absolute right-2 top-16 w-[380px] bg-black/30 rounded p-3 max-h-[60vh] overflow-auto"
-      aria-label="Comms and Tactical Log"
-    >
-      <div className="text-sm mb-2">Comms</div>
-      <div className="space-y-2">
-        {ai.log.slice(-100).map((m, i) => (
-          <div key={i} className="text-xs">
-            <span className="opacity-60 mr-2">[{new Date(m.at).toLocaleTimeString()}]</span>
-            <span className="mr-2 uppercase opacity-80">{m.role}</span>
-            <span className={m.role === 'system' ? 'text-emerald-400' : ''}>{m.text}</span>
-          </div>
+    <div className="absolute right-2 top-16 w-[360px] bg-black/60 rounded p-3 pointer-events-auto space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-sm">Comms (Radio)</div>
+        <div className="text-xs opacity-70">{playing && source === 'radio' ? 'Playing' : 'Idle'}</div>
+      </div>
+
+      <div className="max-h-72 overflow-auto space-y-1 pr-1">
+        {stations.map((s) => (
+          <button
+            key={s.id}
+            className={`w-full text-left px-2 py-2 rounded ${current?.id === s.id ? 'bg-emerald-800/70' : 'bg-slate-800/60 hover:bg-slate-700/60'}`}
+            onClick={() => onSelect(s.id)}
+            title={s.desc}
+          >
+            <div className="text-sm truncate">{s.name}</div>
+            <div className="text-[11px] opacity-70 truncate">{s.desc}</div>
+          </button>
         ))}
+      </div>
+
+      <div className="flex gap-2">
+        <button className="px-3 py-2 bg-slate-800 rounded flex-1" onClick={() => current && onSelect(current.id)}>
+          Play
+        </button>
+        <button className="px-3 py-2 bg-slate-800 rounded" onClick={onStop}>
+          Stop
+        </button>
       </div>
     </div>
   );
