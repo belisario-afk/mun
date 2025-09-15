@@ -116,7 +116,13 @@ export const useStore = create<Store>((set, _get) => ({
   tablet: { wakeLock: false, fullscreen: false, carDockMode: false },
   auth: { spotify: {}, providerReady: { spotify: false } },
   player: { source: 'radio', playing: false, volume: 0.7 },
-  ai: { enabled: true, provider: (__AI_PROVIDER__ as any) || 'mini', active: false, log: [] },
+  ai: {
+    enabled: true,
+    provider:
+      (typeof __AI_PROVIDER__ !== 'undefined' ? (__AI_PROVIDER__ as any) : 'mini'),
+    active: false,
+    log: []
+  },
   sensors: { speedKmh: 0, headingDeg: 0, weather: null, gpsAvailable: false },
   voice: { listening: false, ttsProvider: 'webspeech' },
   actions: {
