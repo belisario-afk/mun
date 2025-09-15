@@ -23,6 +23,8 @@ import { InstallPrompt } from '../components/UI/InstallPrompt';
 import { DynamicDPR } from '../three/perf/DynamicDPR';
 import { startAmbient } from '../audio/ambient/ambient';
 import { SourceController } from '../audio/SourceController';
+import { initGeolocationOnGesture } from '../sensors/geolocation/useGeolocation';
+import { waitForFirstGesture } from '../utils/userGesture';
 
 export const App: React.FC = () => {
   const {
@@ -33,18 +35,17 @@ export const App: React.FC = () => {
   useFullscreen();
 
   useEffect(() => {
+    // Load Spotify SDK shell early (no-throw even without token)
     initializeSpotifySDK().catch(() => {});
-    const onFirstGesture = () => {
+    // Geolocation will only request after first user gesture
+    initGeolocationOnGesture();
+
+    // Start ambient SFX only after a gesture (prevents autoplay violations)
+    const run = async () => {
+      await waitForFirstGesture();
       startAmbient();
-      window.removeEventListener('pointerdown', onFirstGesture);
-      window.removeEventListener('keydown', onFirstGesture);
     };
-    window.addEventListener('pointerdown', onFirstGesture);
-    window.addEventListener('keydown', onFirstGesture);
-    return () => {
-      window.removeEventListener('pointerdown', onFirstGesture);
-      window.removeEventListener('keydown', onFirstGesture);
-    };
+    run();
   }, []);
 
   return (
