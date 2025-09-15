@@ -13,7 +13,7 @@ export async function voiceSpeak(text: string) {
     if (provider === 'azure') return await speakAzureTTSProxy(text);
     if (provider === 'playht') return await speakPlayHTProxy(text);
     return await speakWebSpeech(text);
-  } catch (_e) {
+  } catch {
     try {
       return await speakWebSpeech(text);
     } catch {

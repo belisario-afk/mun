@@ -131,7 +131,7 @@ export default {
       }
 
       return new Response('Not found', { status: 404, headers: cors });
-    } catch (_e) {
+    } catch {
       return new Response('Proxy error', { status: 500, headers: cors });
     }
   }

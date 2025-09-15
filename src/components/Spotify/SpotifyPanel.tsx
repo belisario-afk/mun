@@ -33,7 +33,7 @@ export const SpotifyPanel: React.FC = () => {
         if (player && auth.deviceId && list.every((d) => !d.is_active)) {
           await spotifyTransferPlayback(auth.deviceId);
         }
-      } catch (_e) {
+      } catch {
         actions.toast('Spotify init error', 'warn');
       }
     }
