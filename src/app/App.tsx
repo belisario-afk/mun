@@ -37,6 +37,7 @@ import { AlbumArtPaletteEffect } from '../theme/AlbumArtPaletteEffect';
 export const App: React.FC = () => {
   const {
     ui: { reducedMotion, highContrast, expanded, parallax },
+    player: { source }
   } = useStore();
 
   useWakeLock();
@@ -82,15 +83,13 @@ export const App: React.FC = () => {
     >
       <A11yAnnouncer />
       <GestureLayer />
+      {/* Central source/FX guard */}
       <SourceController />
       <CarDockManager />
 
       <AlbumArtPaletteEffect />
 
-      {/* Boot sequence overlay */}
       <BootSequence />
-
-      {/* Iris mask transition on expand/stealth */}
       <IrisMask />
 
       <div className="absolute inset-0">
@@ -110,16 +109,19 @@ export const App: React.FC = () => {
           style={overlayTransform ? { transform: overlayTransform } : undefined}
         >
           <UpperBandEnv />
-          <LeftWingPlaylists />
-          <RightWingComms />
+
+          {/* Show only the active source panels */}
+          {source === 'spotify' && <LeftWingPlaylists />}
+          {source === 'radio' && <RightWingComms />}
         </div>
       )}
 
-      {expanded && (
+      {expanded && source === 'spotify' && (
         <div
           className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto will-change-transform"
           style={overlayTransform ? { transform: overlayTransform } : undefined}
         >
+          {/* Keep your existing paddles if they control scope/theme etc. */}
           <TogglePaddles />
         </div>
       )}
@@ -131,8 +133,10 @@ export const App: React.FC = () => {
       <FirstRunHint />
       <InstallPrompt />
 
-      {expanded && <SpotifyPanel />}
-      {expanded && <LocalPanel />}
+      {/* Right/Bottom panels: show only the active source */}
+      {expanded && source === 'spotify' && <SpotifyPanel />}
+      {expanded && source === 'local' && <LocalPanel />}
+      {/* Radio already has RightWingComms pane above */}
     </div>
   );
 };

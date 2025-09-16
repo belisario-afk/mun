@@ -51,6 +51,8 @@ export const LocalPanel: React.FC = () => {
     refresh();
   }
 
+  if (source !== 'local') return null;
+
   return (
     <div className="absolute left-1/2 bottom-20 translate-x-[220px] w-[360px] bg-black/60 rounded p-3 pointer-events-auto space-y-2">
       <div className="flex items-center justify-between">

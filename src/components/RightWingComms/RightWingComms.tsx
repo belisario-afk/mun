@@ -26,6 +26,8 @@ export const RightWingComms: React.FC = () => {
     actions.setPlayState(false);
   };
 
+  if (source !== 'radio') return null;
+
   return (
     <div className="absolute right-2 top-16 w-[360px] bg-black/60 rounded p-3 pointer-events-auto space-y-2">
       <div className="flex items-center justify-between">

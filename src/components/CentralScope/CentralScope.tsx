@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../store/store';
@@ -7,13 +7,15 @@ import { getActiveAnalyser } from '../../audio/dsp/analyser';
 /**
  * CentralScope
  * Dynamic cockpit overlay with rings, crosshair, rotating ticks,
- * scanner marker, and equalizer ring driven by real audio if available.
+ * scanner marker, and equalizer ring driven by analyser if available.
+ * Now tinted with dynamic theme accent (album art palette).
  */
 export const CentralScope: React.FC = () => {
   const scopeMode = useStore((s) => s.ui.scopeMode);
   const expanded = useStore((s) => s.ui.expanded);
   const lowPower = useStore((s) => s.ui.lowPower);
   const reducedMotion = useStore((s) => s.ui.reducedMotion);
+  const accent = useStore((s) => s.theme.accent);
 
   const group = useRef<THREE.Group>(null!);
   const ringOuter = useRef<THREE.Mesh>(null!);
@@ -24,40 +26,66 @@ export const CentralScope: React.FC = () => {
   const scanner = useRef<THREE.Mesh>(null!);
   const eqBars = useRef<THREE.Group>(null!);
 
-  const { ringOuterGeom, ringInnerGeom, barGeom, hairGeom, tickGeom, scanGeom, reticleMat, hairMat, tickMat, scanMat, barMat } =
-    useMemo(() => {
-      const ringOuterGeom = new THREE.RingGeometry(0.62, 0.9, 128, 1);
-      const ringInnerGeom = new THREE.RingGeometry(0.28, 0.3, 64, 1);
+  const {
+    ringOuterGeom,
+    ringInnerGeom,
+    barGeom,
+    hairGeom,
+    tickGeom,
+    scanGeom,
+    reticleMat,
+    hairMat,
+    tickMat,
+    scanMat,
+    barMat
+  } = useMemo(() => {
+    const ringOuterGeom = new THREE.RingGeometry(0.62, 0.9, 128, 1);
+    const ringInnerGeom = new THREE.RingGeometry(0.28, 0.3, 64, 1);
 
-      const hairGeom = new THREE.PlaneGeometry(1.6, 0.005);
-      const tickGeom = new THREE.PlaneGeometry(0.04, 0.08);
-      const barGeom = new THREE.PlaneGeometry(0.035, 0.12);
-      const scanGeom = new THREE.CircleGeometry(0.02, 16);
+    const hairGeom = new THREE.PlaneGeometry(1.6, 0.005);
+    const tickGeom = new THREE.PlaneGeometry(0.04, 0.08);
+    const barGeom = new THREE.PlaneGeometry(0.035, 0.12);
+    const scanGeom = new THREE.CircleGeometry(0.02, 16);
 
-      const baseColor = new THREE.Color(0x11ffee);
-      const reticleMat = new THREE.MeshBasicMaterial({
-        color: baseColor,
-        transparent: true,
-        opacity: 0.65,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const hairMat = reticleMat.clone();
-      hairMat.opacity = 0.35;
-      const tickMat = reticleMat.clone();
-      tickMat.opacity = 0.45;
-      const barMat = reticleMat.clone();
-      barMat.opacity = 0.5;
-      const scanMat = new THREE.MeshBasicMaterial({
-        color: baseColor.clone().offsetHSL(0, 0, 0.1),
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
+    const c = new THREE.Color('#58e7ff'); // initial; will be updated by accent effect
+    const reticleMat = new THREE.MeshBasicMaterial({
+      color: c.clone(),
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const hairMat = reticleMat.clone();
+    hairMat.opacity = 0.35;
+    const tickMat = reticleMat.clone();
+    tickMat.opacity = 0.45;
+    const barMat = reticleMat.clone();
+    barMat.opacity = 0.5;
+    const scanMat = new THREE.MeshBasicMaterial({
+      color: c.clone().offsetHSL(0, 0, 0.1),
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
 
-      return { ringOuterGeom, ringInnerGeom, barGeom, hairGeom, tickGeom, scanGeom, reticleMat, hairMat, tickMat, scanMat, barMat };
-    }, []);
+    return { ringOuterGeom, ringInnerGeom, barGeom, hairGeom, tickGeom, scanGeom, reticleMat, hairMat, tickMat, scanMat, barMat };
+  }, []);
+
+  // Live-apply album accent to all mats
+  useEffect(() => {
+    try {
+      const col = new THREE.Color(accent || '#58e7ff');
+      reticleMat.color.set(col);
+      hairMat.color.set(col);
+      tickMat.color.set(col);
+      barMat.color.set(col);
+      scanMat.color.set(col.clone().offsetHSL(0, 0, 0.1));
+      reticleMat.needsUpdate = hairMat.needsUpdate = tickMat.needsUpdate = barMat.needsUpdate = scanMat.needsUpdate = true;
+    } catch {
+      // ignore bad color
+    }
+  }, [accent, reticleMat, hairMat, tickMat, barMat, scanMat]);
 
   const buildEqBars = useMemo(() => {
     const g = new THREE.Group();
@@ -149,7 +177,7 @@ export const CentralScope: React.FC = () => {
         if (!freqRef.current || freqRef.current.length !== analyser.frequencyBinCount) {
           freqRef.current = new Uint8Array(analyser.frequencyBinCount);
         }
-        // Cast to any to accommodate lib.dom typing variance
+        // TS lib.dom variants: cast to any to avoid generic mismatch across TS libs
         (analyser as any).getByteFrequencyData(freqRef.current as any);
 
         for (let i = 0; i < bars.length; i++) {

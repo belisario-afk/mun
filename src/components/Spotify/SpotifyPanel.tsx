@@ -13,6 +13,7 @@ import { useStore } from '../../store/store';
 
 export const SpotifyPanel: React.FC = () => {
   const playerState = useStore((s) => s.player);
+  const actions = useStore((s) => s.actions);
   const auth = useStore((s) => s.auth.spotify);
   const [devices, setDevices] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
   const active = playerState.source === 'spotify';
@@ -89,7 +90,10 @@ export const SpotifyPanel: React.FC = () => {
           <div className="flex gap-2">
             <button
               className="px-3 py-2 bg-slate-800 rounded flex-1"
-              onClick={() => spotifyPlayPause(!playerState.playing)}
+              onClick={async () => {
+                if (!active) actions.setSource('spotify');
+                await spotifyPlayPause(!playerState.playing);
+              }}
               aria-label={playerState.playing ? 'Pause' : 'Play'}
             >
               {playerState.playing ? 'Pause' : 'Play'}

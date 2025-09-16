@@ -9,6 +9,7 @@ export const StealthMenu: React.FC = () => {
   const actions = useStore((s) => s.actions);
   const ai = useStore((s) => s.ai);
   const theme = useStore((s) => s.theme);
+  const source = useStore((s) => s.player.source);
 
   return (
     <>
@@ -28,9 +29,28 @@ export const StealthMenu: React.FC = () => {
       {open && (
         <div
           id="stealth-menu-panel"
-          className="absolute bottom-14 left-2 bg-black/70 p-4 rounded w-[380px] max-w-[92vw] space-y-3"
+          className="absolute bottom-14 left-2 bg-black/70 p-4 rounded w-[420px] max-w-[92vw] space-y-3"
         >
           <div className="text-lg">Stealth Menu</div>
+
+          {/* Source selection */}
+          <div className="grid grid-cols-3 gap-2">
+            {(['spotify', 'radio', 'local'] as const).map((s) => (
+              <button
+                key={s}
+                className={`px-2 py-2 rounded ${source === s ? 'bg-emerald-700' : 'bg-slate-800'}`}
+                onClick={() => {
+                  actions.setSource(s);
+                  sfxToggle();
+                  vibrateShort();
+                }}
+                aria-pressed={source === s}
+              >
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <button
               className="px-2 py-2 bg-slate-800 rounded"
@@ -149,41 +169,8 @@ export const StealthMenu: React.FC = () => {
               AI: {ai.enabled ? 'On' : 'Off'}
             </button>
           </div>
-          <div className="pt-2">
-            <label className="block text-sm mb-1">Command</label>
-            <CommandBar />
-          </div>
         </div>
       )}
     </>
-  );
-};
-
-const CommandBar: React.FC = () => {
-  const [value, setValue] = useState('');
-  const actions = useStore((s) => s.actions);
-  const ai = useStore((s) => s.ai);
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!value.trim()) return;
-    actions.logAI('user', value.trim());
-    const { dispatchAI } = await import('../../ai/dispatcher');
-    await dispatchAI(value.trim());
-    setValue('');
-  };
-  return (
-    <form className="flex gap-2" onSubmit={onSubmit}>
-      <input
-        aria-label="AI command"
-        placeholder={ai.enabled ? 'e.g., Set theme tactical' : 'AI disabled'}
-        disabled={!ai.enabled}
-        className="flex-1 bg-slate-900 rounded px-2 py-1"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
-      <button className="px-3 py-1 bg-slate-800 rounded" disabled={!ai.enabled}>
-        Send
-      </button>
-    </form>
   );
 };
