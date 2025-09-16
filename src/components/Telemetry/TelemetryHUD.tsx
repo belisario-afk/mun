@@ -81,7 +81,8 @@ function useLiveTelemetry() {
 }
 
 export const TelemetryHUD: React.FC = () => {
-  const weather = useStore((s: any) => s.weather ?? s.sensors?.weather ?? null);
+  // Weather from store if available; optional chaining with any to avoid strict TS coupling
+  const weather = useStore((s: any) => s.weather ?? (s as any).sensors?.weather ?? null);
   const t = useLiveTelemetry();
 
   return (

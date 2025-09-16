@@ -52,13 +52,25 @@ export const StealthHUD: React.FC = () => {
   return (
     <div
       className={[
-        'absolute inset-0 pointer-events-none',
+        'absolute inset-0',
+        // Root overlay ignores pointer events by default to avoid trapping clicks under it.
+        'pointer-events-none',
         ui.reducedMotion ? 'prefers-reduced-motion' : ''
       ].join(' ')}
       aria-label="Stealth HUD"
     >
-      <div className="absolute inset-0">
-        <Canvas dpr={[0.7, 1.0]} frameloop="always" onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}>
+      {/* R3F overlay: explicitly disable events so it never captures clicks */}
+      <div className="absolute inset-0 pointer-events-none">
+        <Canvas
+          dpr={[0.7, 1.0]}
+          frameloop="always"
+          onCreated={({ gl }) => {
+            gl.setClearColor(0x000000, 0);
+            // Safety: ensure canvas doesn't eat events
+            const el = gl.domElement as HTMLCanvasElement;
+            el.style.pointerEvents = 'none';
+          }}
+        >
           <group>
             <AudioGrid />
             <SweepArcs />
@@ -67,6 +79,7 @@ export const StealthHUD: React.FC = () => {
         </Canvas>
       </div>
 
+      {/* Panel cluster (left/right) — these are clickable */}
       <div className="absolute inset-0 grid grid-cols-2 gap-2 p-3">
         <div className="flex flex-col gap-2">
           {leftPanels.map((p, i) => (
@@ -95,18 +108,21 @@ export const StealthHUD: React.FC = () => {
         </div>
       </div>
 
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] opacity-80 tracking-[0.25em]">
+      {/* Minimal center indicator */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] opacity-80 tracking-[0.25em] pointer-events-none">
         {playing ? 'LIVE' : 'STANDBY'} · {scopeMode?.toUpperCase?.() ?? 'RING'}
       </div>
 
+      {/* Soft outer vignette tied to energy */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
           background: `radial-gradient(ellipse at center, rgba(0,0,0,0) 50%, rgba(0,0,0,${0.18 + energy * 0.12}) 80%)`,
           filter: `saturate(${1 + energy * 0.15})`
         }}
       />
 
+      {/* Soft neon border pulse */}
       <div
         className="absolute inset-1 rounded pointer-events-none"
         style={{
@@ -149,6 +165,7 @@ function Panel({
         flip.setNode(el);
       }}
       className={[
+        // Make panels interactive even under a pointer-events-none parent
         'pointer-events-auto select-none rounded',
         'bg-black/45 backdrop-blur-[1px]',
         'border border-white/10',

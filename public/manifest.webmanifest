@@ -1,0 +1,22 @@
+{
+  "name": "Phantom Console",
+  "short_name": "Phantom",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0b1016",
+  "theme_color": "#0b1016",
+  "icons": [
+    {
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADAAAAAAAABAAAAAABJRU5ErkJggg==",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAABq8n0NAAAAAklEQVR4nO3BMQEAAADCoPVPbQhPoAAAAAAAAAAAAAAAgH0B2rQAAcJp9VEAAAAASUVORK5CYII=",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
