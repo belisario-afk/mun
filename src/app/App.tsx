@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CentralScope } from '../components/CentralScope/CentralScope';
 import { LeftWingPlaylists } from '../components/LeftWingPlaylists/LeftWingPlaylists';

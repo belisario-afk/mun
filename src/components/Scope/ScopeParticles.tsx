@@ -29,7 +29,7 @@ export const ScopeParticles: React.FC = () => {
     [color]
   );
 
-  useFrame((state, delta) => {
+  useFrame((state, _delta) => {
     if (!points.current || reducedMotion) return;
     const t = state.clock.elapsedTime;
     const s = playing ? 1.0 : 0.5;
