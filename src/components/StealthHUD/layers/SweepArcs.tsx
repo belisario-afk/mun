@@ -47,11 +47,19 @@ export const SweepArcs: React.FC = () => {
     const speed = 0.5 + energyRef.current * 2.2;
     group.current.rotation.z = t * speed;
 
-    // subtle pulsation in opacity
-    for (const c of group.current.children) {
-      const mat = (c as THREE.Mesh).material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.2 + 0.35 * (0.5 + 0.5 * Math.sin(t * 3.0 + c.id * 0.7)) * (0.5 + 0.5 * energyRef.current);
-    }
+    // Subtle pulsation in opacity with guards
+    group.current.children.forEach((child, idx) => {
+      if ((child as any).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        mats.forEach((m) => {
+          if (m && (m as any).opacity !== undefined) {
+            const mb = m as THREE.MeshBasicMaterial;
+            mb.opacity = 0.2 + 0.35 * (0.5 + 0.5 * Math.sin(t * 3.0 + idx * 0.7)) * (0.5 + 0.5 * energyRef.current);
+          }
+        });
+      }
+    });
   });
 
   return <group ref={group} />;

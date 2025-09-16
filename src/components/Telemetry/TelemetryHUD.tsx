@@ -1,5 +1,6 @@
 import React from 'react';
 import { useStore } from '../../store/store';
+import { hasUserGestured, waitForFirstGesture } from '../../utils/userGesture';
 
 type Telemetry = {
   speedKmh: number | null;
@@ -21,51 +22,65 @@ function useLiveTelemetry() {
   });
 
   React.useEffect(() => {
-    if (!('geolocation' in navigator)) return;
+    let watchId: number | null = null;
+    let cancelled = false;
     let last: { lat: number; lon: number; t: number } | null = null;
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude, longitude, heading, speed, accuracy } = pos.coords;
-        const now = pos.timestamp || performance.now();
 
-        let speedMs: number | null = speed ?? null;
-        // Compute speed if not provided by platform
-        if (speedMs == null && last) {
-          const toRad = (x: number) => (x * Math.PI) / 180;
-          const R = 6371000;
-          const dLat = toRad(latitude - last.lat);
-          const dLon = toRad(longitude - last.lon);
-          const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRad(last.lat)) * Math.cos(toRad(latitude)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          const d = R * c;
-          const dt = Math.max(1, (now - last.t) / 1000);
-          speedMs = d / dt;
-        }
+    async function start() {
+      // Enforce user gesture gating to avoid violations
+      if (!hasUserGestured()) {
+        await waitForFirstGesture();
+      }
+      if (cancelled || !('geolocation' in navigator)) return;
 
-        setT({
-          speedKmh: speedMs != null ? speedMs * 3.6 : null,
-          speedMph: speedMs != null ? speedMs * 2.23693629 : null,
-          headingDeg: heading ?? null,
-          lat: latitude ?? null,
-          lon: longitude ?? null,
-          accuracy: accuracy ?? null
-        });
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude, heading, speed, accuracy } = pos.coords;
+          const now = pos.timestamp || performance.now();
 
-        last = { lat: latitude, lon: longitude, t: now };
-      },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
-    );
-    return () => navigator.geolocation.clearWatch(id);
+          let speedMs: number | null = speed ?? null;
+          if (speedMs == null && last) {
+            const toRad = (x: number) => (x * Math.PI) / 180;
+            const R = 6371000;
+            const dLat = toRad(latitude - last.lat);
+            const dLon = toRad(longitude - last.lon);
+            const a =
+              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(last.lat)) * Math.cos(toRad(latitude)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const d = R * c;
+            const dt = Math.max(1, (now - last.t) / 1000);
+            speedMs = d / dt;
+          }
+
+          setT({
+            speedKmh: speedMs != null ? speedMs * 3.6 : null,
+            speedMph: speedMs != null ? speedMs * 2.23693629 : null,
+            headingDeg: heading ?? null,
+            lat: latitude ?? null,
+            lon: longitude ?? null,
+            accuracy: accuracy ?? null
+          });
+
+          last = { lat: latitude, lon: longitude, t: now };
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+      );
+    }
+
+    void start();
+
+    return () => {
+      cancelled = true;
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    };
   }, []);
 
   return t;
 }
 
 export const TelemetryHUD: React.FC = () => {
-  // Weather from store if available; optional chaining with any to avoid strict TS coupling
   const weather = useStore((s: any) => s.weather ?? s.sensors?.weather ?? null);
   const t = useLiveTelemetry();
 
