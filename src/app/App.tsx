@@ -33,6 +33,7 @@ import { WeatherLayerFX } from '../components/FX/WeatherLayerFX';
 import { IrisMask } from '../components/Overlays/IrisMask';
 import { BootSequence } from '../components/Overlays/BootSequence';
 import { AlbumArtPaletteEffect } from '../theme/AlbumArtPaletteEffect';
+import { StealthHUD } from '../components/StealthHUD/StealthHUD';
 
 export const App: React.FC = () => {
   const {
@@ -44,7 +45,6 @@ export const App: React.FC = () => {
   useFullscreen();
   useWeather();
 
-  // Parallax tracking (CSS-based for overlay layers)
   const [px, setPx] = useState({ x: 0.5, y: 0.5 });
   const onMouseMove = (e: React.MouseEvent) => {
     if (!parallax || reducedMotion) return;
@@ -55,7 +55,7 @@ export const App: React.FC = () => {
   };
   const overlayTransform = useMemo(() => {
     if (!parallax || reducedMotion) return undefined;
-    const dx = (px.x - 0.5) * 12; // px offset
+    const dx = (px.x - 0.5) * 12;
     const dy = (px.y - 0.5) * 8;
     return `translate3d(${dx}px, ${dy}px, 0)`;
   }, [px, parallax, reducedMotion]);
@@ -64,7 +64,6 @@ export const App: React.FC = () => {
     spotifyInitOnAppLoad().catch(() => {});
     initializeSpotifySDK().catch(() => {});
     initGeolocationOnGesture();
-
     (async () => {
       await waitForFirstGesture();
       startAmbient();
@@ -83,15 +82,13 @@ export const App: React.FC = () => {
     >
       <A11yAnnouncer />
       <GestureLayer />
-      {/* Central source/FX guard */}
       <SourceController />
       <CarDockManager />
-
       <AlbumArtPaletteEffect />
-
       <BootSequence />
       <IrisMask />
 
+      {/* Shared background Canvas */}
       <div className="absolute inset-0">
         <Canvas dpr={[0.7, 1.0]} frameloop="always" onCreated={({ gl }) => gl.setClearColor(0x0b1016)}>
           <CentralScope />
@@ -103,28 +100,34 @@ export const App: React.FC = () => {
         </Canvas>
       </div>
 
+      {/* Expanded (classic) layout */}
       {expanded && (
-        <div
-          className="absolute inset-0 pointer-events-none will-change-transform"
-          style={overlayTransform ? { transform: overlayTransform } : undefined}
-        >
-          <UpperBandEnv />
+        <>
+          <div
+            className="absolute inset-0 pointer-events-none will-change-transform"
+            style={overlayTransform ? { transform: overlayTransform } : undefined}
+          >
+            <UpperBandEnv />
+            {source === 'spotify' && <LeftWingPlaylists />}
+            {source === 'radio' && <RightWingComms />}
+          </div>
 
-          {/* Show only the active source panels */}
-          {source === 'spotify' && <LeftWingPlaylists />}
-          {source === 'radio' && <RightWingComms />}
-        </div>
+          {source === 'spotify' && (
+            <div
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto will-change-transform"
+              style={overlayTransform ? { transform: overlayTransform } : undefined}
+            >
+              <TogglePaddles />
+            </div>
+          )}
+
+          {source === 'spotify' && <SpotifyPanel />}
+          {source === 'local' && <LocalPanel />}
+        </>
       )}
 
-      {expanded && source === 'spotify' && (
-        <div
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto will-change-transform"
-          style={overlayTransform ? { transform: overlayTransform } : undefined}
-        >
-          {/* Keep your existing paddles if they control scope/theme etc. */}
-          <TogglePaddles />
-        </div>
-      )}
+      {/* Stealth HUD layout */}
+      {!expanded && <StealthHUD />}
 
       <StealthMenu />
       <VoiceIndicator />
@@ -132,11 +135,6 @@ export const App: React.FC = () => {
       <Toasts />
       <FirstRunHint />
       <InstallPrompt />
-
-      {/* Right/Bottom panels: show only the active source */}
-      {expanded && source === 'spotify' && <SpotifyPanel />}
-      {expanded && source === 'local' && <LocalPanel />}
-      {/* Radio already has RightWingComms pane above */}
     </div>
   );
 };
