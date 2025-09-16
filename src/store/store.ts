@@ -10,11 +10,15 @@ export interface UIState {
   reducedMotion: boolean;
   highContrast: boolean;
   lowPower: boolean;
+  visualFX: boolean; // NEW
+  parallax: boolean; // NEW
+  bootSequence: boolean; // NEW
   toasts: { id: string; text: string; level: 'info' | 'warn' | 'error' }[];
 }
 
 export interface ThemeState {
   theme: keyof typeof themes;
+  accent: string; // REQUIRED string to avoid undefined typing issues
 }
 
 export interface TabletState {
@@ -58,7 +62,7 @@ export interface AIState {
 export interface SensorState {
   speedKmh: number;
   headingDeg: number;
-  weather: { kind: 'sun' | 'rain' | 'fog' | 'cloud'; tempC?: number } | null;
+  weather: { kind: 'sun' | 'rain' | 'fog' | 'cloud' | 'snow'; tempC?: number } | null;
   gpsAvailable: boolean;
 }
 
@@ -89,6 +93,9 @@ export type Store = {
     setReducedMotion: (v: boolean) => void;
     setHighContrast: (v: boolean) => void;
     setLowPower: (v: boolean) => void;
+    setVisualFX: (v: boolean) => void;
+    setParallax: (v: boolean) => void;
+    setBootSequence: (v: boolean) => void;
     setPlayState: (playing: boolean) => void;
     setTrack: (t: PlayerState['track'] | null | undefined) => void;
     setAIViz: (enabled: boolean) => void;
@@ -98,6 +105,7 @@ export type Store = {
     setFullscreen: (v: boolean) => void;
     setCarDock: (v: boolean) => void;
     setTheme: (k: keyof typeof themes) => void;
+    setAccentColor: (hex?: string) => void;
   };
 };
 
@@ -108,10 +116,14 @@ export const useStore = create<Store>((set, _get) => ({
     reducedMotion: false,
     highContrast: false,
     lowPower: false,
+    visualFX: true,
+    parallax: true,
+    bootSequence: true,
     toasts: []
   },
   theme: {
-    theme: 'spyTech'
+    theme: 'spyTech',
+    accent: '#58e7ff'
   },
   tablet: { wakeLock: false, fullscreen: false, carDockMode: false },
   auth: { spotify: {}, providerReady: { spotify: false } },
@@ -145,6 +157,9 @@ export const useStore = create<Store>((set, _get) => ({
     setReducedMotion: (v) => set((st) => ({ ui: { ...st.ui, reducedMotion: v } })),
     setHighContrast: (v) => set((st) => ({ ui: { ...st.ui, highContrast: v } })),
     setLowPower: (v) => set((st) => ({ ui: { ...st.ui, lowPower: v } })),
+    setVisualFX: (v) => set((st) => ({ ui: { ...st.ui, visualFX: v } })),
+    setParallax: (v) => set((st) => ({ ui: { ...st.ui, parallax: v } })),
+    setBootSequence: (v) => set((st) => ({ ui: { ...st.ui, bootSequence: v } })),
     setPlayState: (playing) => set((st) => ({ player: { ...st.player, playing } })),
     setTrack: (t) =>
       set((st) => {
@@ -163,6 +178,8 @@ export const useStore = create<Store>((set, _get) => ({
     setWakeLock: (v) => set((st) => ({ tablet: { ...st.tablet, wakeLock: v } })),
     setFullscreen: (v) => set((st) => ({ tablet: { ...st.tablet, fullscreen: v } })),
     setCarDock: (v) => set((st) => ({ tablet: { ...st.tablet, carDockMode: v } })),
-    setTheme: (k) => set(() => ({ theme: { theme: k } }))
+    setTheme: (k) => set((st) => ({ theme: { ...st.theme, theme: k } })), // preserve accent
+    setAccentColor: (hex) =>
+      set((st) => ({ theme: { ...st.theme, accent: hex ?? st.theme.accent } }))
   }
 }));

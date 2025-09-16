@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CentralScope } from '../components/CentralScope/CentralScope';
 import { LeftWingPlaylists } from '../components/LeftWingPlaylists/LeftWingPlaylists';
@@ -26,15 +26,38 @@ import { SourceController } from '../audio/SourceController';
 import { initGeolocationOnGesture } from '../sensors/geolocation/useGeolocation';
 import { waitForFirstGesture } from '../utils/userGesture';
 import { useWeather } from '../sensors/weather/useWeather';
+import { VisualEffects } from '../three/fx/VisualEffects';
+import { ScopeParticles } from '../components/Scope/ScopeParticles';
+import { ScopeArcs } from '../components/Scope/ScopeArcs';
+import { WeatherLayerFX } from '../components/FX/WeatherLayerFX';
+import { IrisMask } from '../components/Overlays/IrisMask';
+import { BootSequence } from '../components/Overlays/BootSequence';
+import { AlbumArtPaletteEffect } from '../theme/AlbumArtPaletteEffect';
 
 export const App: React.FC = () => {
   const {
-    ui: { reducedMotion, highContrast, expanded }
+    ui: { reducedMotion, highContrast, expanded, parallax },
   } = useStore();
 
   useWakeLock();
   useFullscreen();
   useWeather();
+
+  // Parallax tracking (CSS-based for overlay layers)
+  const [px, setPx] = useState({ x: 0.5, y: 0.5 });
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!parallax || reducedMotion) return;
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    setPx({ x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) });
+  };
+  const overlayTransform = useMemo(() => {
+    if (!parallax || reducedMotion) return undefined;
+    const dx = (px.x - 0.5) * 12; // px offset
+    const dy = (px.y - 0.5) * 8;
+    return `translate3d(${dx}px, ${dy}px, 0)`;
+  }, [px, parallax, reducedMotion]);
 
   useEffect(() => {
     spotifyInitOnAppLoad().catch(() => {});
@@ -55,21 +78,37 @@ export const App: React.FC = () => {
         highContrast ? 'high-contrast' : ''
       ].join(' ')}
       aria-label="Phantom Console Stealth Cockpit Stereo"
+      onMouseMove={onMouseMove}
     >
       <A11yAnnouncer />
       <GestureLayer />
       <SourceController />
       <CarDockManager />
 
+      <AlbumArtPaletteEffect />
+
+      {/* Boot sequence overlay */}
+      <BootSequence />
+
+      {/* Iris mask transition on expand/stealth */}
+      <IrisMask />
+
       <div className="absolute inset-0">
         <Canvas dpr={[0.7, 1.0]} frameloop="always" onCreated={({ gl }) => gl.setClearColor(0x0b1016)}>
           <CentralScope />
+          <ScopeArcs />
+          <ScopeParticles />
+          <WeatherLayerFX />
+          <VisualEffects />
           <DynamicDPR />
         </Canvas>
       </div>
 
       {expanded && (
-        <div className="absolute inset-0 pointer-events-none">
+        <div
+          className="absolute inset-0 pointer-events-none will-change-transform"
+          style={overlayTransform ? { transform: overlayTransform } : undefined}
+        >
           <UpperBandEnv />
           <LeftWingPlaylists />
           <RightWingComms />
@@ -77,7 +116,10 @@ export const App: React.FC = () => {
       )}
 
       {expanded && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
+        <div
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto will-change-transform"
+          style={overlayTransform ? { transform: overlayTransform } : undefined}
+        >
           <TogglePaddles />
         </div>
       )}
