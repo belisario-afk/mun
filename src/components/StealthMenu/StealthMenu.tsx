@@ -30,12 +30,14 @@ export const StealthMenu: React.FC = () => {
             <button
               className="px-2 py-2 bg-slate-800 rounded"
               onClick={() => actions.toggleExpanded(false)}
+              aria-pressed={!ui.expanded}
             >
               Stealth HUD
             </button>
             <button
               className="px-2 py-2 bg-slate-800 rounded"
               onClick={() => actions.toggleExpanded(true)}
+              aria-pressed={ui.expanded}
             >
               Expanded
             </button>

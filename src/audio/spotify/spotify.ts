@@ -36,6 +36,8 @@ if (!clientId) {
 // Respect Vite base so GH Pages /mun/ works. Default to current app base.
 const BASE_URL = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '/') as string;
 const defaultRedirect = `${location.origin}${BASE_URL}`;
+// IMPORTANT: This must exactly match a Redirect URI configured in your Spotify app dashboard.
+// Prefer setting VITE_SPOTIFY_REDIRECT_URI to avoid trailing-slash mismatches.
 const redirectUri: string =
   import.meta.env.VITE_SPOTIFY_REDIRECT_URI?.trim() || defaultRedirect;
 
@@ -156,6 +158,13 @@ function randomString(len = 64) {
   return base64UrlEncode(bytes);
 }
 
+/**
+ * Helpful for diagnostics and UI messaging.
+ */
+export function getSpotifyRedirectUri(): string {
+  return redirectUri;
+}
+
 // PKCE login
 export async function spotifyLogin() {
   if (!clientId) {
@@ -191,7 +200,26 @@ export async function spotifyHandleRedirectCallback(): Promise<boolean> {
   const error = url.searchParams.get('error');
 
   if (error) {
-    useStore.getState().actions.toast(`Spotify auth error: ${error}`, 'error');
+    const known = String(error).toLowerCase();
+    if (known.includes('invalid') || known.includes('client')) {
+      // Surface exact redirect to configure in the Spotify Dashboard
+      const alt =
+        redirectUri.endsWith('/') ? redirectUri.slice(0, -1) : `${redirectUri}/`;
+      useStore
+        .getState()
+        .actions.toast(
+          `Spotify auth error: ${error}. Ensure Redirect URI matches exactly: ${redirectUri} (you may need to try ${alt} depending on trailing slash).`,
+          'error'
+        );
+      console.warn(
+        '[Spotify] Redirect URI mismatch. Configure this in your Spotify app:',
+        redirectUri,
+        'Alternate (if needed):',
+        alt
+      );
+    } else {
+      useStore.getState().actions.toast(`Spotify auth error: ${error}`, 'error');
+    }
     // clean URL
     url.searchParams.delete('error');
     history.replaceState({}, '', url.toString());

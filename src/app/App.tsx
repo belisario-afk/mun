@@ -29,7 +29,7 @@ import { useWeather } from '../sensors/weather/useWeather';
 
 export const App: React.FC = () => {
   const {
-    ui: { reducedMotion, highContrast }
+    ui: { reducedMotion, highContrast, expanded }
   } = useStore();
 
   useWakeLock();
@@ -68,15 +68,19 @@ export const App: React.FC = () => {
         </Canvas>
       </div>
 
-      <div className="absolute inset-0 pointer-events-none">
-        <UpperBandEnv />
-        <LeftWingPlaylists />
-        <RightWingComms />
-      </div>
+      {expanded && (
+        <div className="absolute inset-0 pointer-events-none">
+          <UpperBandEnv />
+          <LeftWingPlaylists />
+          <RightWingComms />
+        </div>
+      )}
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
-        <TogglePaddles />
-      </div>
+      {expanded && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
+          <TogglePaddles />
+        </div>
+      )}
 
       <StealthMenu />
       <VoiceIndicator />
@@ -85,8 +89,8 @@ export const App: React.FC = () => {
       <FirstRunHint />
       <InstallPrompt />
 
-      <SpotifyPanel />
-      <LocalPanel />
+      {expanded && <SpotifyPanel />}
+      {expanded && <LocalPanel />}
     </div>
   );
 };
