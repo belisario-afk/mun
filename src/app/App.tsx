@@ -34,17 +34,21 @@ import { IrisMask } from '../components/Overlays/IrisMask';
 import { BootSequence } from '../components/Overlays/BootSequence';
 import { AlbumArtPaletteEffect } from '../theme/AlbumArtPaletteEffect';
 import { StealthHUD } from '../components/StealthHUD/StealthHUD';
+import { DraggablePanel } from '../components/UI/DraggablePanel';
+import { TelemetryHUD } from '../components/Telemetry/TelemetryHUD';
 
 export const App: React.FC = () => {
   const {
     ui: { reducedMotion, highContrast, expanded, parallax },
     player: { source }
   } = useStore();
+  const ai: any = useStore((s: any) => s.ai);
 
   useWakeLock();
   useFullscreen();
   useWeather();
 
+  // Parallax tracking (CSS-based for overlay layers)
   const [px, setPx] = useState({ x: 0.5, y: 0.5 });
   const onMouseMove = (e: React.MouseEvent) => {
     if (!parallax || reducedMotion) return;
@@ -55,7 +59,7 @@ export const App: React.FC = () => {
   };
   const overlayTransform = useMemo(() => {
     if (!parallax || reducedMotion) return undefined;
-    const dx = (px.x - 0.5) * 12;
+    const dx = (px.x - 0.5) * 12; // px offset
     const dy = (px.y - 0.5) * 8;
     return `translate3d(${dx}px, ${dy}px, 0)`;
   }, [px, parallax, reducedMotion]);
@@ -64,6 +68,7 @@ export const App: React.FC = () => {
     spotifyInitOnAppLoad().catch(() => {});
     initializeSpotifySDK().catch(() => {});
     initGeolocationOnGesture();
+
     (async () => {
       await waitForFirstGesture();
       startAmbient();
@@ -82,13 +87,18 @@ export const App: React.FC = () => {
     >
       <A11yAnnouncer />
       <GestureLayer />
+      {/* Central source/FX guard */}
       <SourceController />
       <CarDockManager />
+
       <AlbumArtPaletteEffect />
+
       <BootSequence />
       <IrisMask />
 
-      {/* Shared background Canvas */}
+      {/* Telemetry strip visible in all modes */}
+      <TelemetryHUD />
+
       <div className="absolute inset-0">
         <Canvas dpr={[0.7, 1.0]} frameloop="always" onCreated={({ gl }) => gl.setClearColor(0x0b1016)}>
           <CentralScope />
@@ -100,41 +110,49 @@ export const App: React.FC = () => {
         </Canvas>
       </div>
 
-      {/* Expanded (classic) layout */}
       {expanded && (
-        <>
-          <div
-            className="absolute inset-0 pointer-events-none will-change-transform"
-            style={overlayTransform ? { transform: overlayTransform } : undefined}
-          >
-            <UpperBandEnv />
-            {source === 'spotify' && <LeftWingPlaylists />}
-            {source === 'radio' && <RightWingComms />}
-          </div>
+        <div
+          className="absolute inset-0 pointer-events-none will-change-transform"
+          style={overlayTransform ? { transform: overlayTransform } : undefined}
+        >
+          <UpperBandEnv />
 
+          {/* Show only the active source panels */}
           {source === 'spotify' && (
-            <div
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto will-change-transform"
-              style={overlayTransform ? { transform: overlayTransform } : undefined}
-            >
-              <TogglePaddles />
-            </div>
+            <DraggablePanel id="playlists" defaultPos={{ x: 16, y: 120 }} handleSelector=".drag-handle">
+              <div className="drag-handle cursor-move absolute -top-3 left-0 right-0 h-3" aria-hidden />
+              <LeftWingPlaylists />
+            </DraggablePanel>
           )}
-
-          {source === 'spotify' && <SpotifyPanel />}
-          {source === 'local' && <LocalPanel />}
-        </>
+          {source === 'radio' && <RightWingComms />}
+        </div>
       )}
 
-      {/* Stealth HUD layout */}
-      {!expanded && <StealthHUD />}
+      {expanded && source === 'spotify' && (
+        <div
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto will-change-transform"
+          style={overlayTransform ? { transform: overlayTransform } : undefined}
+        >
+          {/* Keep your existing paddles if they control scope/theme etc. */}
+          <TogglePaddles />
+        </div>
+      )}
 
       <StealthMenu />
-      <VoiceIndicator />
+
+      {/* Hide idle/“start mic” UI. Only show if AI is actively listening. */}
+      {ai && (ai.listening || ai.status === 'listening') ? <VoiceIndicator /> : null}
+
       <Diagnostics />
       <Toasts />
       <FirstRunHint />
       <InstallPrompt />
+
+      {/* Right/Bottom panels: show only the active source */}
+      {expanded && source === 'spotify' && <SpotifyPanel />}
+      {expanded && source === 'local' && <LocalPanel />}
+      {/* Radio already has RightWingComms pane above */}
+      {!expanded && <StealthHUD />}
     </div>
   );
 };
