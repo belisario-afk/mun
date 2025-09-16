@@ -2,13 +2,18 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useStore } from '../../store/store';
+import { useFps } from '../../utils/fps';
 
 export const ScopeParticles: React.FC = () => {
   const lowPower = useStore((s) => s.ui.lowPower);
   const reducedMotion = useStore((s) => s.ui.reducedMotion);
   const playing = useStore((s) => s.player.playing);
   const themeAccent = useStore((s) => s.theme.accent) || '#58e7ff';
-  const count = lowPower ? 120 : 320;
+  const fps = useFps();
+
+  const perfScale = lowPower ? 0.4 : fps < 36 ? 0.5 : fps < 54 ? 0.75 : 1.0;
+  const baseCount = 360;
+  const count = Math.max(80, Math.floor(baseCount * perfScale));
 
   const points = useRef<THREE.Points>(null);
   const positions = useMemo(() => {
@@ -25,16 +30,27 @@ export const ScopeParticles: React.FC = () => {
 
   const color = useMemo(() => new THREE.Color(themeAccent), [themeAccent]);
   const material = useMemo(
-    () => new THREE.PointsMaterial({ size: 0.01, color, transparent: true, opacity: 0.8, depthWrite: false }),
-    [color]
+    () =>
+      new THREE.PointsMaterial({
+        size: 0.01,
+        color,
+        transparent: true,
+        opacity: Math.min(0.9, 0.6 + 0.3 * perfScale),
+        depthWrite: false
+      }),
+    [color, perfScale]
   );
 
-  useFrame((state, _delta) => {
+  useFrame((state) => {
     if (!points.current || reducedMotion) return;
     const t = state.clock.elapsedTime;
     const s = playing ? 1.0 : 0.5;
     points.current.rotation.z = t * 0.06 * s;
-    material.opacity = THREE.MathUtils.lerp(material.opacity, playing ? 0.9 : 0.4, 0.05);
+    material.opacity = THREE.MathUtils.lerp(
+      material.opacity,
+      (playing ? 0.9 : 0.4) * (0.7 + 0.3 * perfScale),
+      0.06
+    );
   });
 
   if (reducedMotion) return null;
