@@ -40,16 +40,18 @@ const redirectUri: string =
   import.meta.env.VITE_SPOTIFY_REDIRECT_URI?.trim() || defaultRedirect;
 
 // Scopes required for SDK + control from Web API
-const SCOPES = [
-  'streaming',
-  'user-read-email',
-  'user-read-private',
-  'user-read-playback-state',
-  'user-modify-playback-state',
-  'user-read-currently-playing',
-  'playlist-read-private',
-  'playlist-read-collaborative'
-].join(' ');
+const SCOPES =
+  import.meta.env.VITE_SPOTIFY_SCOPES?.trim() ||
+  [
+    'streaming',
+    'user-read-email',
+    'user-read-private',
+    'user-read-playback-state',
+    'user-modify-playback-state',
+    'user-read-currently-playing',
+    'playlist-read-private',
+    'playlist-read-collaborative'
+  ].join(' ');
 
 let sdkInjected = false;
 let sdkReadyResolve: (() => void) | null = null;

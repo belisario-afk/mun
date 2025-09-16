@@ -25,6 +25,7 @@ import { startAmbient } from '../audio/ambient/ambient';
 import { SourceController } from '../audio/SourceController';
 import { initGeolocationOnGesture } from '../sensors/geolocation/useGeolocation';
 import { waitForFirstGesture } from '../utils/userGesture';
+import { useWeather } from '../sensors/weather/useWeather';
 
 export const App: React.FC = () => {
   const {
@@ -33,17 +34,13 @@ export const App: React.FC = () => {
 
   useWakeLock();
   useFullscreen();
+  useWeather();
 
   useEffect(() => {
-    // Handle Spotify auth restore/redirect and inject SDK
     spotifyInitOnAppLoad().catch(() => {});
-    // Also ensure SDK tag is injected early (no-op if already injected)
     initializeSpotifySDK().catch(() => {});
-
-    // Geolocation armed to first gesture
     initGeolocationOnGesture();
 
-    // Ambient audio only after a gesture (prevents autoplay violations)
     (async () => {
       await waitForFirstGesture();
       startAmbient();

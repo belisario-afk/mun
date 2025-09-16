@@ -1,12 +1,20 @@
+import { useStore } from '../../store/store';
 import { getAnalyser as getRadioAnalyser } from '../radio/radio';
-import { getLocalAnalyser } from '../local/local';
+import { getAnalyser as getLocalAnalyser } from '../local/local';
 
-export function useAnalyserData(target: 'radio' | 'local' = 'radio') {
-  const analyser = target === 'radio' ? getRadioAnalyser() : getLocalAnalyser();
-  if (!analyser) return { waveform: new Uint8Array(), freq: new Uint8Array() };
-  const waveform = new Uint8Array(analyser.fftSize);
-  const freq = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteTimeDomainData(waveform);
-  analyser.getByteFrequencyData(freq);
-  return { waveform, freq };
+/** Returns analyser for the currently active audio source (radio/local), or null. */
+export function getActiveAnalyser(): AnalyserNode | null {
+  const source = useStore.getState().player.source;
+  if (source === 'radio') return getRadioAnalyser();
+  if (source === 'local') return getLocalAnalyser();
+  return null;
+}
+
+/** Utility to read frequency data safely (handles TS lib typing variations) */
+export function readFrequencies(target: Uint8Array | Float32Array): boolean {
+  const an = getActiveAnalyser();
+  if (!an) return false;
+  // Cast to any to satisfy environments where lib.dom.d.ts expects Uint8Array<ArrayBuffer>
+  (an as any).getByteFrequencyData(target as any);
+  return true;
 }

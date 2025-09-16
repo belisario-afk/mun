@@ -2,18 +2,12 @@ import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../store/store';
+import { getActiveAnalyser } from '../../audio/dsp/analyser';
 
 /**
  * CentralScope
- * - Reticle: outer and inner rings with additive glow
- * - Crosshair: horizontal/vertical hairlines
- * - Ticks: rotating radial ticks
- * - Scanner: rotating marker around the ring
- * - Modes:
- *   - oscilloscope (default): subtle pulsing and wobble
- *   - equalizer: animated bars around the ring
- *   - ring: faster rotation, scanner emphasized
- *   - timeline: lateral sweep motion
+ * Dynamic cockpit overlay with rings, crosshair, rotating ticks,
+ * scanner marker, and equalizer ring driven by real audio if available.
  */
 export const CentralScope: React.FC = () => {
   const scopeMode = useStore((s) => s.ui.scopeMode);
@@ -30,7 +24,6 @@ export const CentralScope: React.FC = () => {
   const scanner = useRef<THREE.Mesh>(null!);
   const eqBars = useRef<THREE.Group>(null!);
 
-  // Geometries and materials
   const { ringOuterGeom, ringInnerGeom, barGeom, hairGeom, tickGeom, scanGeom, reticleMat, hairMat, tickMat, scanMat, barMat } =
     useMemo(() => {
       const ringOuterGeom = new THREE.RingGeometry(0.62, 0.9, 128, 1);
@@ -51,13 +44,10 @@ export const CentralScope: React.FC = () => {
       });
       const hairMat = reticleMat.clone();
       hairMat.opacity = 0.35;
-
       const tickMat = reticleMat.clone();
       tickMat.opacity = 0.45;
-
       const barMat = reticleMat.clone();
       barMat.opacity = 0.5;
-
       const scanMat = new THREE.MeshBasicMaterial({
         color: baseColor.clone().offsetHSL(0, 0, 0.1),
         transparent: true,
@@ -69,7 +59,6 @@ export const CentralScope: React.FC = () => {
       return { ringOuterGeom, ringInnerGeom, barGeom, hairGeom, tickGeom, scanGeom, reticleMat, hairMat, tickMat, scanMat, barMat };
     }, []);
 
-  // Build equalizer bars around the ring
   const buildEqBars = useMemo(() => {
     const g = new THREE.Group();
     const count = 48;
@@ -79,14 +68,12 @@ export const CentralScope: React.FC = () => {
       const r = 0.5;
       m.position.set(Math.cos(t) * r, Math.sin(t) * r, 0.001);
       m.rotation.z = t;
-      // Stagger opacity for a subtle wheel look
       (m.material as THREE.MeshBasicMaterial).opacity = 0.25 + 0.35 * (i % 4 === 0 ? 1 : 0.4);
       g.add(m);
     }
     return g;
   }, [barGeom, barMat]);
 
-  // Place ticks as an InstancedMesh
   const setupTicks = () => {
     if (!ticks.current) return;
     const count = 60;
@@ -100,17 +87,13 @@ export const CentralScope: React.FC = () => {
       dummy.scale.set(1, s, 1);
       dummy.updateMatrix();
       ticks.current.setMatrixAt(i, dummy.matrix);
-      // Slightly emphasize the 5th ticks
-      const c = new THREE.Color().setHSL(0.48, 0.8, i % 5 === 0 ? 0.7 : 0.55);
-      ticks.current.setColorAt?.(i, c);
+      ticks.current.setColorAt?.(i, new THREE.Color().setHSL(0.48, 0.8, i % 5 === 0 ? 0.7 : 0.55));
     }
     ticks.current.instanceMatrix.needsUpdate = true;
   };
 
-  // Attach equalizer bars group once
   React.useLayoutEffect(() => {
     if (!eqBars.current) return;
-    // clear safely for strict checks
     while (eqBars.current.children.length > 0) {
       const child = eqBars.current.children[0];
       if (child) eqBars.current.remove(child);
@@ -118,17 +101,17 @@ export const CentralScope: React.FC = () => {
     eqBars.current.add(buildEqBars);
   }, [buildEqBars]);
 
-  // Initialize tick transforms
   React.useLayoutEffect(() => {
     setupTicks();
   }, []);
+
+  const freqRef = useRef<Uint8Array | null>(null);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     const motion = reducedMotion ? 0 : 1;
     const power = lowPower ? 0.4 : 1;
 
-    // Group slow rotation
     if (group.current) {
       const base = scopeMode === 'ring' ? 0.25 : 0.12;
       group.current.rotation.z = motion * base * t;
@@ -136,19 +119,16 @@ export const CentralScope: React.FC = () => {
       group.current.scale.setScalar(scale);
     }
 
-    // Reticle pulse
     const pulse = 0.03 * Math.sin(t * 2.2) * power;
     if (ringOuter.current) ringOuter.current.scale.setScalar(1 + pulse);
     if (ringInner.current) ringInner.current.scale.setScalar(1 - pulse * 0.8);
 
-    // Crosshair subtle breathing
     if (crossH.current && crossV.current) {
       const p = 1 + 0.04 * Math.sin(t * 1.6) * power;
       crossH.current.scale.set(p, 1, 1);
       crossV.current.scale.set(1, p, 1);
     }
 
-    // Scanner rotates
     if (scanner.current) {
       const speed = scopeMode === 'ring' ? 1.6 : 1.0;
       const angle = t * speed * motion;
@@ -159,27 +139,51 @@ export const CentralScope: React.FC = () => {
       sm.opacity = 0.6 + 0.35 * (0.5 + 0.5 * Math.sin(t * 4.0));
     }
 
-    // Equalizer bars animation (synthetic if no audio)
     if (eqBars.current) {
       const bars = eqBars.current.children;
       const baseR = 0.5;
-      for (let i = 0; i < bars.length; i++) {
-        const m = bars[i] as THREE.Mesh | undefined;
-        if (!m) continue;
-        // Fake spectrum via multi-frequency sum; vary with mode
-        const f =
-          Math.abs(Math.sin(t * 2.0 + i * 0.3)) * 0.5 +
-          Math.abs(Math.sin(t * 3.7 + i * 0.11)) * 0.35 +
-          Math.abs(Math.sin(t * 5.3 + i * 0.07)) * 0.25;
-        const h = 0.08 + (scopeMode === 'equalizer' ? 0.22 : 0.12) * f * power;
-        const y = h * 0.5;
-        m.scale.set(1, h / 0.12, 1);
-        m.position.setLength(baseR + y);
+      const analyser = getActiveAnalyser();
+      let usedReal = false;
+
+      if (analyser) {
+        if (!freqRef.current || freqRef.current.length !== analyser.frequencyBinCount) {
+          freqRef.current = new Uint8Array(analyser.frequencyBinCount);
+        }
+        // Cast to any to accommodate lib.dom typing variance
+        (analyser as any).getByteFrequencyData(freqRef.current as any);
+
+        for (let i = 0; i < bars.length; i++) {
+          const m = bars[i] as THREE.Mesh | undefined;
+          if (!m) continue;
+          const bin = Math.floor((i / bars.length) * freqRef.current.length);
+          const v = freqRef.current[bin] ?? 0;
+          const norm = v / 255;
+          const h = 0.06 + (scopeMode === 'equalizer' ? 0.28 : 0.18) * norm * power;
+          const y = h * 0.5;
+          m.scale.set(1, h / 0.12, 1);
+          m.position.setLength(baseR + y);
+        }
+        usedReal = true;
       }
+
+      if (!usedReal) {
+        for (let i = 0; i < bars.length; i++) {
+          const m = bars[i] as THREE.Mesh | undefined;
+          if (!m) continue;
+          const f =
+            Math.abs(Math.sin(t * 2.0 + i * 0.3)) * 0.5 +
+            Math.abs(Math.sin(t * 3.7 + i * 0.11)) * 0.35 +
+            Math.abs(Math.sin(t * 5.3 + i * 0.07)) * 0.25;
+          const h = 0.08 + (scopeMode === 'equalizer' ? 0.22 : 0.12) * f * power;
+          const y = h * 0.5;
+          m.scale.set(1, h / 0.12, 1);
+          m.position.setLength(baseR + y);
+        }
+      }
+
       (eqBars.current as THREE.Group).visible = scopeMode === 'equalizer' || scopeMode === 'oscilloscope';
     }
 
-    // Timeline lateral sweep
     if (scopeMode === 'timeline' && ringOuter.current) {
       const sway = 0.06 * Math.sin(t * 1.2) * motion * power;
       ringOuter.current.position.x = sway;
@@ -192,31 +196,13 @@ export const CentralScope: React.FC = () => {
 
   return (
     <group ref={group}>
-      {/* Outer luminous ring */}
       <mesh ref={ringOuter} geometry={ringOuterGeom} material={reticleMat} position={[0, 0, 0.001]} />
-
-      {/* Inner reticle ring */}
       <mesh ref={ringInner} geometry={ringInnerGeom} material={reticleMat} position={[0, 0, 0.001]} />
-
-      {/* Crosshair */}
       <mesh ref={crossH} geometry={hairGeom} material={hairMat} position={[0, 0, 0.001]} />
-      <mesh
-        ref={crossV}
-        geometry={hairGeom}
-        material={hairMat}
-        rotation={[0, 0, Math.PI / 2]}
-        position={[0, 0, 0.001]}
-      />
-
-      {/* Radial ticks */}
+      <mesh ref={crossV} geometry={hairGeom} material={hairMat} rotation={[0, 0, Math.PI / 2]} position={[0, 0, 0.001]} />
       <instancedMesh ref={ticks} args={[tickGeom, tickMat, 60]} position={[0, 0, 0.002]} />
-
-      {/* Scanner marker */}
       <mesh ref={scanner} geometry={scanGeom} material={scanMat} position={[0.77, 0, 0.003]} />
-
-      {/* Equalizer bar ring */}
       <group ref={eqBars} position={[0, 0, 0.001]} />
-
       <ambientLight intensity={0.15} />
       <pointLight position={[2, 2, 2]} intensity={0.35} />
     </group>
