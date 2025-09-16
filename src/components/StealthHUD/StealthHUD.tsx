@@ -72,7 +72,6 @@ export const StealthHUD: React.FC = () => {
           {leftPanels.map((p, i) => (
             <Panel
               key={p.id}
-              id={p.id}
               title={p.title}
               desc={p.desc}
               energy={energy}
@@ -85,7 +84,6 @@ export const StealthHUD: React.FC = () => {
           {rightPanels.map((p, i) => (
             <Panel
               key={p.id}
-              id={p.id}
               title={p.title}
               desc={p.desc}
               energy={energy}
@@ -120,7 +118,6 @@ export const StealthHUD: React.FC = () => {
 };
 
 function Panel({
-  id,
   title,
   desc,
   energy,
@@ -128,11 +125,10 @@ function Panel({
   right,
   revealDelayMs = 60
 }: {
-  id: string;
   title: string;
-  desc?: string | undefined;   // allow explicit undefined with exactOptionalPropertyTypes
+  desc?: string | undefined;
   energy: number;
-  accent?: string | undefined; // allow explicit undefined for accent too
+  accent?: string | undefined;
   right?: boolean;
   revealDelayMs?: number;
 }) {
@@ -145,8 +141,7 @@ function Panel({
       flip.play();
     }, revealDelayMs);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revealDelayMs]);
+  }, [revealDelayMs, flip]);
 
   return (
     <div

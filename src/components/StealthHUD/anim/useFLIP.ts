@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 // Lightweight FLIP for DOM nodes
-export function useFLIP({ spring = 0.08, damping = 0.85 } = {}) {
+export function useFLIP({ spring: _spring = 0.08, damping: _damping = 0.85 } = {}) {
   const nodeRef = useRef<HTMLElement | null>(null);
   const lastRect = useRef<DOMRect | null>(null);
   const [transform, setTransform] = useState<string>('translate3d(0,0,0)');
@@ -19,6 +19,7 @@ export function useFLIP({ spring = 0.08, damping = 0.85 } = {}) {
     const node = nodeRef.current;
     const prev = lastRect.current;
     if (!node || !prev) return;
+
     const next = node.getBoundingClientRect();
     const dx = prev.left - next.left;
     const dy = prev.top - next.top;
